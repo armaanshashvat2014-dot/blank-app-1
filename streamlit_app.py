@@ -4,14 +4,14 @@ from firebase_admin import credentials, firestore
 from datetime import datetime
 
 # =====================
-# 🔐 FIREBASE INIT (LOCAL + CLOUD SAFE)
+# 🔐 FIREBASE INIT (FINAL FIXED)
 # =====================
 if not firebase_admin._apps:
-    try:
-        # 🔥 Streamlit Cloud (secrets)
+    if "firebase" in st.secrets:
+        # ✅ CLOUD (Streamlit)
         cred = credentials.Certificate(dict(st.secrets["firebase"]))
-    except:
-        # 💻 Local (JSON file)
+    else:
+        # ✅ LOCAL (your computer)
         cred = credentials.Certificate("serviceAccountKey.json")
 
     firebase_admin.initialize_app(cred)
@@ -19,7 +19,7 @@ if not firebase_admin._apps:
 db = firestore.client()
 
 # =====================
-# SESSION STATE
+# SESSION
 # =====================
 if "user" not in st.session_state:
     st.session_state.user = None
@@ -28,7 +28,7 @@ if "role" not in st.session_state:
     st.session_state.role = None
 
 # =====================
-# LOGIN UI
+# LOGIN
 # =====================
 st.title("📚 MentorLoop Classroom")
 
@@ -41,10 +41,10 @@ if st.button("Login"):
         st.session_state.role = role
         st.success(f"Logged in as {username}")
     else:
-        st.warning("Please enter a username")
+        st.warning("Enter a username")
 
 # =====================
-# MAIN SYSTEM
+# MAIN
 # =====================
 if st.session_state.user:
 
@@ -52,12 +52,11 @@ if st.session_state.user:
     st.sidebar.info(f"Role: {st.session_state.role}")
 
     # =====================
-    # 🧑‍🏫 TEACHER PANEL
+    # 🧑‍🏫 TEACHER
     # =====================
     if st.session_state.role == "Teacher":
         st.header("🧑‍🏫 Teacher Dashboard")
 
-        # CREATE ASSIGNMENT
         st.subheader("➕ Create Assignment")
 
         title = st.text_input("Title")
@@ -75,9 +74,8 @@ if st.session_state.user:
                 })
                 st.success("Assignment Created!")
             else:
-                st.warning("Please fill all fields")
+                st.warning("Fill all fields")
 
-        # VIEW SUBMISSIONS
         st.subheader("📥 Student Submissions")
 
         submissions = list(db.collection("submissions").stream())
@@ -89,7 +87,7 @@ if st.session_state.user:
                 data = sub.to_dict()
                 doc_id = sub.id
 
-                st.markdown("----")
+                st.markdown("---")
                 st.write(f"👤 Student: {data.get('student')}")
                 st.write(f"📄 Assignment: {data.get('assignment')}")
                 st.write(f"✍️ Answer: {data.get('answer')}")
@@ -97,8 +95,7 @@ if st.session_state.user:
 
                 marks = st.number_input(
                     "Give Marks",
-                    min_value=0,
-                    max_value=100,
+                    0, 100,
                     key=f"marks_{doc_id}"
                 )
 
@@ -109,13 +106,12 @@ if st.session_state.user:
                     st.success("Marks updated!")
 
     # =====================
-    # 🎓 STUDENT PANEL
+    # 🎓 STUDENT
     # =====================
     else:
         st.header("🎓 Student Dashboard")
 
-        # SHOW ASSIGNMENTS
-        st.subheader("📚 Available Assignments")
+        st.subheader("📚 Assignments")
 
         assignments = list(db.collection("assignments").stream())
 
@@ -125,7 +121,7 @@ if st.session_state.user:
             for doc in assignments:
                 data = doc.to_dict()
 
-                st.markdown("----")
+                st.markdown("---")
                 st.write(f"### {data.get('title')}")
                 st.write(data.get("description"))
                 st.write(f"📅 Due: {data.get('due_date')}")
@@ -144,16 +140,20 @@ if st.session_state.user:
                             "marks": None,
                             "submitted_at": datetime.now().isoformat()
                         })
-                        st.success("Submitted Successfully!")
+                        st.success("Submitted!")
                     else:
-                        st.warning("Write an answer first!")
+                        st.warning("Write an answer first")
 
         # RESULTS
         st.subheader("📊 Your Results")
 
         subs = list(db.collection("submissions").stream())
 
-        user_subs = [s.to_dict() for s in subs if s.to_dict().get("student") == st.session_state.user]
+        user_subs = [
+            s.to_dict()
+            for s in subs
+            if s.to_dict().get("student") == st.session_state.user
+        ]
 
         if not user_subs:
             st.info("No submissions yet.")

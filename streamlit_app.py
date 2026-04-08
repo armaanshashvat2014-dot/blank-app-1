@@ -4,14 +4,20 @@ from firebase_admin import credentials, firestore
 from datetime import datetime
 
 # =====================
-# 🔐 FIREBASE INIT (FINAL FIXED)
+# 🔐 FIREBASE INIT (FINAL FIX)
 # =====================
 if not firebase_admin._apps:
-    if "firebase" in st.secrets:
-        # ✅ CLOUD (Streamlit)
-        cred = credentials.Certificate(dict(st.secrets["firebase"]))
-    else:
-        # ✅ LOCAL (your computer)
+    try:
+        # ✅ Get secrets from Streamlit Cloud
+        firebase_dict = dict(st.secrets["firebase"])
+
+        # 🔥 FIX PRIVATE KEY FORMAT
+        firebase_dict["private_key"] = firebase_dict["private_key"].replace("\\n", "\n")
+
+        cred = credentials.Certificate(firebase_dict)
+
+    except Exception:
+        # ✅ Fallback for local testing
         cred = credentials.Certificate("serviceAccountKey.json")
 
     firebase_admin.initialize_app(cred)
@@ -19,7 +25,7 @@ if not firebase_admin._apps:
 db = firestore.client()
 
 # =====================
-# SESSION
+# SESSION STATE
 # =====================
 if "user" not in st.session_state:
     st.session_state.user = None
@@ -28,7 +34,7 @@ if "role" not in st.session_state:
     st.session_state.role = None
 
 # =====================
-# LOGIN
+# LOGIN UI
 # =====================
 st.title("📚 MentorLoop Classroom")
 
@@ -41,10 +47,10 @@ if st.button("Login"):
         st.session_state.role = role
         st.success(f"Logged in as {username}")
     else:
-        st.warning("Enter a username")
+        st.warning("Please enter a username")
 
 # =====================
-# MAIN
+# MAIN SYSTEM
 # =====================
 if st.session_state.user:
 
@@ -52,7 +58,7 @@ if st.session_state.user:
     st.sidebar.info(f"Role: {st.session_state.role}")
 
     # =====================
-    # 🧑‍🏫 TEACHER
+    # 🧑‍🏫 TEACHER PANEL
     # =====================
     if st.session_state.role == "Teacher":
         st.header("🧑‍🏫 Teacher Dashboard")
@@ -95,7 +101,8 @@ if st.session_state.user:
 
                 marks = st.number_input(
                     "Give Marks",
-                    0, 100,
+                    min_value=0,
+                    max_value=100,
                     key=f"marks_{doc_id}"
                 )
 
@@ -106,7 +113,7 @@ if st.session_state.user:
                     st.success("Marks updated!")
 
     # =====================
-    # 🎓 STUDENT
+    # 🎓 STUDENT PANEL
     # =====================
     else:
         st.header("🎓 Student Dashboard")
@@ -144,7 +151,9 @@ if st.session_state.user:
                     else:
                         st.warning("Write an answer first")
 
-        # RESULTS
+        # =====================
+        # 📊 RESULTS
+        # =====================
         st.subheader("📊 Your Results")
 
         subs = list(db.collection("submissions").stream())
